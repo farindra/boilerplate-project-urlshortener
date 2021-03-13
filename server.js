@@ -24,6 +24,7 @@ const ShortUrl = mongoose.model('ShortUrl', shortUrlSchema );
 app.use(cors());
 
 app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.json());
 
 app.use('/public', express.static(`${process.cwd()}/public`));
 
@@ -43,7 +44,8 @@ const findOneByShortUrl = (shortUrl, done) => {
 }
 // create and save url
 const createAndSaveUrl = (url, done) => {
-  ShortUrl.count((err, docsLenght) => {
+  ShortUrl.countDocuments((err, docsLenght) => {
+    console.log('Count : ' + docsLenght);
     if(err) return done(err);
     // first entity
     if (docsLenght == 0){
@@ -64,8 +66,10 @@ const createAndSaveUrl = (url, done) => {
 }
 // test valid url
 const testValidUrl = (url, done) => {
-  if ( /^https?:\/\/(w{3}.)?[\w-]+.com(\/\w+)*/.test(url) ){
-    dns.lookup(url.replace(/^https?:\/\//, ''), (err, address, family) => {
+  console.log(url);
+  if ( /^https?:\/\/(w{3}.)?[\w-]+.(\/\w+)*/.test(url) ){
+    let domain = (new URL(url));
+    dns.lookup(domain.hostname, (err, address, family) => {
       if(err) return done(err);
     done(null, address);
     });
@@ -75,20 +79,30 @@ const testValidUrl = (url, done) => {
 }
 // api new short url
 app.post('/api/shorturl/new', (req, res) => {
+  console.log([req.body]);
   testValidUrl(req.body.url, (err, address) => {
+
+    console.log(address, address === null);
+
     if(err) return res.json(err);
-    if (address == null)
-      return res.json({error: 'invalid URL'});
+
+    if (address === null)
+      return res.json({error: 'invalid url'});
     
     findOneByOrginalUrl(req.body.url, (err, data) => {
       if (err) return res.json(err);
       // if url exists alredy
       if (data){
+        console.log('Data Found: ' + data)
+        
         res.json({original_url: data.original_url, short_url: data.short_url});
       }
       else {
         createAndSaveUrl(req.body.url, (err, doc) => {
           if (err) return res.json(err);
+
+          console.log('Crated New: ' + doc);
+
           res.json(doc);
         });
       }
